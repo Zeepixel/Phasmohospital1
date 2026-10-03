@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phasmohospital - Terceiro Andar Sala do Zelador</title>
+    <title>Phasmohospital - Quarta Sala A Farmácia</title>
     <!-- Fonte Pixel Art Retro -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
@@ -278,17 +278,7 @@
         }
 
         #interaction-msg {
-            position: absolute;
-            bottom: 60px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #0a060f;
-            color: #cbb4de;
-            border: 3px solid #573373;
-            padding: 12px 20px;
-            font-size: 0.75rem;
-            letter-spacing: 1px;
-            z-index: 5;
+            display: none !important;
         }
 
         #health-bar {
@@ -302,6 +292,19 @@
             font-size: 0.8rem;
             letter-spacing: 2px;
             z-index: 5;
+        }
+
+        #darkness-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 12;
+            transition: opacity 1.5s ease;
         }
 
         #victory-screen {
@@ -338,6 +341,7 @@
 
     <div id="game-container">
         <canvas id="gameCanvas" width="320" height="180"></canvas>
+        <div id="darkness-overlay"></div>
 
         <div id="ui-layer">
             <button id="btn-pause" class="hidden">Pause</button>
@@ -412,6 +416,10 @@
                             <div id="ach-operating-room" style="color: #5a4b66; font-size: 0.65rem;">[ Bloqueado ] A Sala de Operações</div>
                             <div class="achievement-desc" style="display: none;"><strong>Explicação:</strong> Derrote o boss da segunda sala.</div>
                         </div>
+                        <div class="achievement-item" onclick="toggleAchievementDesc(this)">
+                            <div id="ach-pharmacy" style="color: #5a4b66; font-size: 0.65rem;">[ Bloqueado ] A Farmácia</div>
+                            <div class="achievement-desc" style="display: none;"><strong>Explicação:</strong> Derrote A Farmacêutica na quarta sala.</div>
+                        </div>
                     </div>
                     <button class="btn-close">Fechar</button>
                 </div>
@@ -451,7 +459,7 @@
 
             <div id="room-title-overlay">A ENFERMARIA</div>
 
-            <div id="interaction-msg" class="hidden">não consigo abrir</div>
+            <div id="interaction-msg" class="hidden"></div>
 
             <div id="health-bar" class="hidden">❤❤❤❤❤</div>
         </div>
@@ -644,6 +652,7 @@
         let achievementFirstDeathUnlocked = false;
         let achievementInfirmaryUnlocked = false;
         let achievementOperatingRoomUnlocked = false;
+        let achievementPharmacyUnlocked = false;
 
         function toggleAchievementDesc(card) {
             const desc = card.querySelector('.achievement-desc');
@@ -668,9 +677,11 @@
 
         const keyPaletteInfirmary = { 'B': '#60a5fa' };
         const keyPaletteBlueRoom = { 'B': '#11E091' };
-        const keyPaletteAquaRoom = { 'B': '#4cd137' };
+        const keyPaletteAquaRoom = { 'B': '#22c55e' };
+        const keyPaletteGreenRoom = { 'B': '#a855f7' };
 
         function getActiveKeyPalette() {
+            if (GameState.current === 'ROOM_GREEN') return keyPaletteGreenRoom;
             if (GameState.current === 'ROOM_AQUA') return keyPaletteAquaRoom;
             return GameState.current === 'ROOM_BLUE' ? keyPaletteBlueRoom : keyPaletteInfirmary;
         }
@@ -703,21 +714,24 @@
             
             Boss2Controller.reset();
             Boss3Controller.reset();
+            Boss4Controller.reset();
 
             document.getElementById('victory-screen').classList.add('hidden');
             document.getElementById('modal-pause').classList.add('hidden');
             document.getElementById('btn-pause').classList.add('hidden');
+            document.getElementById('darkness-overlay').style.opacity = '0';
             updateHealthDisplay();
         }
 
         function triggerGameOver() {
-            if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA') {
+            if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA' || GameState.current === 'ROOM_GREEN') {
                 lastActiveRoom = GameState.current;
             }
             GameState.current = 'GAME_OVER';
             document.getElementById('game-over-screen').classList.remove('hidden');
             document.getElementById('health-bar').classList.add('hidden');
             document.getElementById('btn-pause').classList.add('hidden');
+            document.getElementById('darkness-overlay').style.opacity = '0';
 
             if (!achievementFirstDeathUnlocked) {
                 achievementFirstDeathUnlocked = true;
@@ -773,6 +787,9 @@
             } else if (GameState.current === 'ROOM_AQUA' && Boss3Controller.active) {
                 Boss3Controller.takeDamage(1);
                 ghosts = [];
+            } else if (GameState.current === 'ROOM_GREEN' && Boss4Controller.active) {
+                Boss4Controller.takeDamage(1);
+                ghosts = [];
             } else {
                 ghosts = [];
             }
@@ -784,7 +801,7 @@
                 duration: 35
             });
 
-            if (!bossActive && !Boss2Controller.active && !Boss3Controller.active) {
+            if (!bossActive && !Boss2Controller.active && !Boss3Controller.active && !Boss4Controller.active) {
                 if (count > 0) {
                     showInteractionMsg(`Crucifixo ativado! ${count} fantasmas exorcizados!`);
                     checkBossSpawnCondition();
@@ -888,6 +905,30 @@
             ["_","_","_","_","_","B","_","_","_","_","_","_","_","_","_","_"]
         ];
 
+        // Matriz da Farmacêutica (Quarto Boss) baseada na imagem enviada
+        const bossPharmacistMatrix = [
+            ["_","_","_","_","G","G","G","G","G","G","_","_","_","_"],
+            ["_","_","_","G","G","W","W","W","W","G","G","_","_","_"],
+            ["_","_","_","G","W","P","P","P","P","W","G","_","_","_"],
+            ["_","_","_","G","W","P","E","E","P","W","G","_","_","_"],
+            ["_","_","_","G","W","P","P","P","P","W","G","_","_","_"],
+            ["_","_","_","G","G","W","W","W","W","G","G","_","_","_"],
+            ["_","_","_","_","G","G","G","G","G","G","_","_","_","_"],
+            ["_","_","G","G","C","C","C","C","C","C","G","G","_","_"],
+            ["_","G","G","C","C","C","C","C","C","C","C","G","G","_"],
+            ["_","G","C","C","C","L","L","L","L","C","C","C","G","_"],
+            ["G","G","C","C","L","L","L","L","L","L","C","C","G","G"],
+            ["G","C","C","C","L","L","G","G","L","L","C","C","C","G"],
+            ["G","C","C","C","L","L","G","G","L","L","C","C","C","G"],
+            ["_","G","C","C","L","L","L","L","L","L","C","C","G","_"],
+            ["_","G","G","C","C","C","C","C","C","C","C","G","G","_"],
+            ["_","_","G","G","G","K","K","K","K","G","G","G","_","_"],
+            ["_","_","_","G","K","K","K","K","K","K","G","_","_","_"],
+            ["_","_","_","G","K","K","K","K","K","K","G","_","_","_"],
+            ["_","_","_","G","K","K","K","K","K","K","G","_","_","_"],
+            ["_","_","_","_","G","G","G","G","G","G","_","_","_","_"]
+        ];
+
         const ghostPalettePurple = {
             'G': '#581c87', 'P': '#a855f7', 'R': '#e879f9', 'W': '#f3e8ff', 'B': '#2e1065'
         };
@@ -912,27 +953,40 @@
             'B': '#022c22', 'C': '#10b981', 'X': '#34d399', 'W': '#ecfdf5'
         };
 
+        const ghostPaletteGreen = {
+            'G': '#14532d', 'P': '#22c55e', 'R': '#86efac', 'W': '#f0fdf4', 'B': '#052e16'
+        };
+
+        const bossPalettePharmacist = {
+            'G': '#052e16', 'W': '#f0fdf4', 'P': '#86efac', 'E': '#15803d', 'C': '#16a34a', 'L': '#15803d', 'K': '#14532d'
+        };
+
         function getActiveGhostPalette() {
+            if (GameState.current === 'ROOM_GREEN') return ghostPaletteGreen;
             if (GameState.current === 'ROOM_AQUA') return ghostPaletteAqua;
             return GameState.current === 'ROOM_BLUE' ? ghostPaletteBlue : ghostPalettePurple;
         }
 
         function getActiveBossMatrix() {
+            if (GameState.current === 'ROOM_GREEN') return bossPharmacistMatrix;
             if (GameState.current === 'ROOM_AQUA') return bossAquaMatrix;
             return GameState.current === 'ROOM_BLUE' ? bossSyringeMatrix : bossNurseMatrix;
         }
 
         function getActiveBossPalette() {
+            if (GameState.current === 'ROOM_GREEN') return bossPalettePharmacist;
             if (GameState.current === 'ROOM_AQUA') return bossPaletteAqua;
             return GameState.current === 'ROOM_BLUE' ? bossPaletteBlue : bossPalettePurple;
         }
 
         function checkBossSpawnCondition() {
-            if (ghostsSpawnedTotal >= maxGhostsToSpawn && ghosts.length === 0 && !bossActive && !Boss2Controller.active && !Boss3Controller.active) {
+            if (ghostsSpawnedTotal >= maxGhostsToSpawn && ghosts.length === 0 && !bossActive && !Boss2Controller.active && !Boss3Controller.active && !Boss4Controller.active) {
                 if (GameState.current === 'ROOM_BLUE') {
                     Boss2Controller.init();
                 } else if (GameState.current === 'ROOM_AQUA') {
                     Boss3Controller.init();
+                } else if (GameState.current === 'ROOM_GREEN') {
+                    Boss4Controller.init();
                 } else {
                     bossActive = true;
                     boss = {
@@ -982,15 +1036,446 @@
         }
 
         // ==========================================
-        // CONFIGURAÇÃO DO TERCEIRO BOSS (SALA DO ZELADOR) - MODIFICADO
+        // QUARTO BOSS: A FARMACÊUTICA (SALA VERDE)
         // ==========================================
+        const Boss4Controller = {
+            active: false,
+            x: 160,
+            y: 0,
+            health: 7,
+            maxHealth: 7,
+            state: 'INACTIVE', 
+            stateTimer: 0,
+
+            // Controle da Sequência das 6 Poções:
+            // Regra: 5 Primeiras não repetem (sem reposição). 2 Próximas podem repetir. Depois reinicia.
+            deck: [],
+            sequenceIndex: 0, 
+
+            // Frascos ao redor (Animação de fusão)
+            vials: [],
+            mixingState: 'IDLE', // 'ORBITING', 'MERGING', 'DISAPPEARING', 'READY_TO_THROW'
+            mixingTimer: 0,
+            chosenColor: 'red',
+
+            // Efeitos na arena
+            puddles: [],      // Poças (Amarela, Laranja)
+            mushrooms: [],    // Cogumelos (Verde)
+            potionsInAir: [],  // Poções voando
+            slownessTimer: 0,
+
+            init() {
+                this.active = true;
+                this.health = 7;
+                this.maxHealth = 7;
+                this.sequenceIndex = 0;
+                this.resetDeck();
+                this.puddles = [];
+                this.mushrooms = [];
+                this.potionsInAir = [];
+                this.slownessTimer = 0;
+                this.relocateAndPrepare();
+
+                showInteractionMsg("QUARTO BOSS ATIVADO: A FARMACÊUTICA!");
+                AudioSystem.playTransitionSound();
+            },
+
+            reset() {
+                this.active = false;
+                this.state = 'INACTIVE';
+                this.puddles = [];
+                this.mushrooms = [];
+                this.potionsInAir = [];
+                this.slownessTimer = 0;
+            },
+
+            resetDeck() {
+                // Baralho das 6 cores
+                this.deck = ['red', 'yellow', 'blue', 'orange', 'green', 'purple'];
+                this.shuffle(this.deck);
+            },
+
+            shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            },
+
+            getNextPotionColor() {
+                const step = this.sequenceIndex % 7; // Ciclo de 7 arremessos
+                let chosen = 'red';
+
+                if (step < 5) {
+                    // Primeiras 5: Não repetem (Retira do deck sem reposição)
+                    if (this.deck.length === 0) this.resetDeck();
+                    chosen = this.deck.pop();
+                } else {
+                    // Próximas 2 (passos 5 e 6): Podem repetir qualquer uma das 6
+                    const allColors = ['red', 'yellow', 'blue', 'orange', 'green', 'purple'];
+                    chosen = allColors[Math.floor(Math.random() * allColors.length)];
+                }
+
+                this.sequenceIndex++;
+                if (this.sequenceIndex % 7 === 0) {
+                    this.resetDeck();
+                }
+
+                return chosen;
+            },
+
+            relocateAndPrepare() {
+                const floorIdx = Math.floor(Math.random() * Infirmary.floors.length);
+                this.y = Infirmary.floors[floorIdx];
+                this.x = 50 + Math.random() * 220;
+
+                this.chosenColor = this.getNextPotionColor();
+                this.state = 'PREPARING_POTION';
+                this.mixingState = 'ORBITING';
+                this.mixingTimer = 40;
+
+                // Spawna os 3 frascos (Vermelho, Azul, Amarelo)
+                this.vials = [
+                    { color: 'red', angle: 0 },
+                    { color: 'blue', angle: (2 * Math.PI) / 3 },
+                    { color: 'yellow', angle: (4 * Math.PI) / 3 }
+                ];
+            },
+
+            takeDamage(amount = 1) {
+                if (!this.active || this.state === 'DYING') return;
+
+                if (this.state === 'VULNERABLE') {
+                    this.health -= amount;
+                    AudioSystem.playGhostDieSound();
+                    showInteractionMsg(`A Farmacêutica foi atingida! Vida: ${this.health}/${this.maxHealth}`);
+
+                    if (this.health <= 0) {
+                        this.state = 'DYING';
+                        this.stateTimer = 100;
+                        AudioSystem.playBossDieSound();
+
+                        if (!achievementPharmacyUnlocked) {
+                            achievementPharmacyUnlocked = true;
+                            const achEl = document.getElementById('ach-pharmacy');
+                            if (achEl) {
+                                achEl.innerHTML = "[ Desbloqueado ] A Farmácia";
+                                achEl.style.color = "#22c55e";
+                            }
+                            showInteractionMsg("Nova Conquista Desbloqueada!");
+                        }
+                    } else {
+                        // Após levar dano, troca de lugar e prepara nova poção
+                        this.relocateAndPrepare();
+                    }
+                } else {
+                    showInteractionMsg("A Farmacêutica está invulnerável agora!");
+                }
+            },
+
+            update() {
+                if (!this.active || GameState.isPaused) return;
+
+                // Atualizar temporizador de lentidão
+                if (this.slownessTimer > 0) {
+                    this.slownessTimer -= 1 * gameSpeedMultiplier;
+                }
+
+                if (this.state === 'DYING') {
+                    this.stateTimer -= 1 * gameSpeedMultiplier;
+                    if (this.stateTimer <= 0) {
+                        this.active = false;
+                        bossDefeatedSequence = true;
+                        waitingForPlayerContinue = true;
+                        document.getElementById('victory-screen').classList.remove('hidden');
+                        showInteractionMsg("Vitória sobre A Farmacêutica!");
+                    }
+                    return;
+                }
+
+                if (this.state === 'PREPARING_POTION') {
+                    this.mixingTimer -= 1 * gameSpeedMultiplier;
+
+                    if (this.mixingState === 'ORBITING') {
+                        this.vials.forEach(v => v.angle += 0.1 * gameSpeedMultiplier);
+                        if (this.mixingTimer <= 0) {
+                            this.mixingTimer = 35;
+                            const isPure = ['red', 'blue', 'yellow'].includes(this.chosenColor);
+
+                            if (isPure) {
+                                // Deixa apenas a cor pura escolhida
+                                this.vials = this.vials.filter(v => v.color === this.chosenColor);
+                                this.mixingState = 'DISAPPEARING';
+                            } else {
+                                // Fusão de misturas
+                                if (this.chosenColor === 'green') {
+                                    this.vials = this.vials.filter(v => v.color === 'yellow' || v.color === 'blue');
+                                } else if (this.chosenColor === 'orange') {
+                                    this.vials = this.vials.filter(v => v.color === 'yellow' || v.color === 'red');
+                                } else if (this.chosenColor === 'purple') {
+                                    this.vials = this.vials.filter(v => v.color === 'blue' || v.color === 'red');
+                                }
+                                this.mixingState = 'MERGING';
+                            }
+                        }
+                    } else if (this.mixingState === 'MERGING' || this.mixingState === 'DISAPPEARING') {
+                        if (this.mixingTimer <= 0) {
+                            this.state = 'THROWING_POTION';
+                            this.throwPotion(this.chosenColor);
+                        }
+                    }
+                } else if (this.state === 'VULNERABLE') {
+                    this.stateTimer -= 1 * gameSpeedMultiplier;
+                    if (this.stateTimer <= 0) {
+                        // Se o tempo esgotar sem levar dano, troca de lugar
+                        this.relocateAndPrepare();
+                    }
+                }
+
+                this.updateProjectilesAndArena();
+            },
+
+            throwPotion(color) {
+                AudioSystem.playThrowSound();
+
+                let targetX = Player.x;
+                let targetY = Player.y;
+
+                // Se a poção for Amarela, Laranja ou Verde, arremessa em um andar aleatório num lugar aleatório
+                if (['yellow', 'orange', 'green'].includes(color)) {
+                    const randomFloorIdx = Math.floor(Math.random() * Infirmary.floors.length);
+                    targetY = Infirmary.floors[randomFloorIdx];
+                    targetX = 40 + Math.random() * 240;
+                }
+
+                const startX = this.x;
+                const startY = this.y - 30;
+
+                const dx = targetX - startX;
+                const dy = targetY - startY;
+                const flightTime = 30; 
+
+                this.potionsInAir.push({
+                    color: color,
+                    x: startX,
+                    y: startY,
+                    vx: dx / flightTime,
+                    vy: (dy / flightTime) - 3, 
+                    targetY: targetY,
+                    targetX: targetX,
+                    gravity: 0.2
+                });
+
+                // Após arremessar, torna-se vulnerável
+                this.state = 'VULNERABLE';
+                this.stateTimer = 110; 
+            },
+
+            updateProjectilesAndArena() {
+                // 1. Atualizar Poções no Ar
+                for (let i = this.potionsInAir.length - 1; i >= 0; i--) {
+                    let p = this.potionsInAir[i];
+                    p.x += p.vx * gameSpeedMultiplier;
+                    p.y += p.vy * gameSpeedMultiplier;
+                    p.vy += p.gravity * gameSpeedMultiplier;
+
+                    // Colisão direta com o jogador (Para Vermelho, Azul, Roxo)
+                    const distToPlayer = Math.hypot(p.x - Player.x, p.y - (Player.y - 12));
+                    if (distToPlayer < 15 && damageFlashTimer <= 0) {
+                        this.applyPotionEffect(p.color, Player.x, Player.y);
+                        this.potionsInAir.splice(i, 1);
+                        continue;
+                    }
+
+                    // Colisão com o chão do andar alvo
+                    if (p.y >= p.targetY) {
+                        this.applyPotionImpactGround(p.color, p.x, p.targetY);
+                        this.potionsInAir.splice(i, 1);
+                    }
+                }
+
+                // 2. Checar colisão do jogador com Poças no Chão
+                for (let i = this.puddles.length - 1; i >= 0; i--) {
+                    let puddle = this.puddles[i];
+                    // Se o jogador estiver no mesmo andar e na mesma faixa horizontal
+                    const playerFloorY = Infirmary.floors[Player.currentFloor];
+                    if (Math.abs(playerFloorY - puddle.y) < 5 && Math.abs(Player.x - puddle.x) < 18) {
+                        if (puddle.color === 'yellow') {
+                            if (damageFlashTimer <= 0) {
+                                AudioSystem.playDamageSound();
+                                damageFlashTimer = 35;
+                                playerHealth--;
+                                updateHealthDisplay();
+                                showInteractionMsg("Pisou no veneno amarelo! (-1 Vida)");
+                                if (playerHealth <= 0) triggerGameOver();
+                                this.puddles.splice(i, 1);
+                            }
+                        } else if (puddle.color === 'orange') {
+                            this.slownessTimer = 150; // Fica lento por um curto período
+                            showInteractionMsg("Pisou na poça laranja! Lento!");
+                        }
+                    }
+                }
+
+                // 3. Checar colisão horizontal com Cogumelos (Verde)
+                this.mushrooms.forEach(mush => {
+                    const playerFloorY = Infirmary.floors[Player.currentFloor];
+                    if (Math.abs(playerFloorY - mush.y) < 5) {
+                        // Impede a passagem do jogador horizontalmente
+                        if (Player.x > mush.x && Player.x - mush.x < 12) {
+                            Player.x = mush.x + 12;
+                        } else if (Player.x < mush.x && mush.x - Player.x < 12) {
+                            Player.x = mush.x - 12;
+                        }
+                    }
+                });
+            },
+
+            applyPotionEffect(color, x, y) {
+                if (color === 'red') {
+                    AudioSystem.playDamageSound();
+                    damageFlashTimer = 35;
+                    playerHealth--;
+                    updateHealthDisplay();
+                    showInteractionMsg("Atingido por Poção Vermelha! (-1 Vida)");
+                    if (playerHealth <= 0) triggerGameOver();
+                } else if (color === 'blue') {
+                    if (playerHealth < maxPlayerHealth) {
+                        playerHealth++;
+                        updateHealthDisplay();
+                        showInteractionMsg("Atingido por Poção Azul! (+1 Vida)");
+                    }
+                } else if (color === 'purple') {
+                    // Cansaço: tela fica lentamente escura e depois volta
+                    const overlay = document.getElementById('darkness-overlay');
+                    overlay.style.opacity = '1';
+                    setTimeout(() => {
+                        overlay.style.opacity = '0';
+                    }, 3000);
+                    showInteractionMsg("Efeito da Poção Roxa: Visão Escurecida!");
+                }
+            },
+
+            applyPotionImpactGround(color, x, y) {
+                if (color === 'yellow') {
+                    this.puddles.push({ color: 'yellow', x: x, y: y });
+                } else if (color === 'orange') {
+                    this.puddles.push({ color: 'orange', x: x, y: y });
+                } else if (color === 'green') {
+                    this.mushrooms.push({ x: x, y: y });
+                } else {
+                    // Para Vermelho, Azul ou Roxo caso atinjam o chão sem tocar o jogador
+                    this.applyPotionEffect(color, x, y);
+                }
+            },
+
+            getColorHex(color) {
+                const map = {
+                    'red': '#ef4444', 'blue': '#3b82f6', 'yellow': '#eab308',
+                    'orange': '#f97316', 'green': '#22c55e', 'purple': '#a855f7'
+                };
+                return map[color] || '#ffffff';
+            },
+
+            draw(ctx, cameraY) {
+                if (!this.active) return;
+
+                const screenX = Math.floor(this.x);
+                const screenY = Math.floor(this.y - cameraY);
+                const currentBossMatrix = bossPharmacistMatrix;
+                const currentBossPalette = bossPalettePharmacist;
+
+                ctx.save();
+                if (this.state === 'DYING') {
+                    ctx.globalAlpha = Math.max(0, this.stateTimer / 100);
+                } else if (this.state === 'VULNERABLE') {
+                    ctx.globalAlpha = (Math.floor(Date.now() / 80) % 2 === 0) ? 0.4 : 1.0;
+                }
+
+                const pSize = 2;
+                const bWidth = currentBossMatrix[0].length * pSize;
+                const bHeight = currentBossMatrix.length * pSize;
+                drawPixelMatrix(ctx, currentBossMatrix, currentBossPalette, screenX - Math.floor(bWidth / 2), screenY - bHeight, pSize);
+                ctx.restore();
+
+                // Barra de Vida do Boss (7 Acertos)
+                if (this.state !== 'DYING') {
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(screenX - 25, screenY - bHeight - 12, 50, 6);
+                    ctx.fillStyle = this.state === 'VULNERABLE' ? '#ff3333' : '#22c55e';
+                    ctx.fillRect(screenX - 24, screenY - bHeight - 11, (48 * (this.health / this.maxHealth)), 4);
+                }
+
+                // Desenhar Frascos em órbita/preparação ao redor do boss
+                if (this.state === 'PREPARING_POTION') {
+                    this.vials.forEach(vial => {
+                        const vx = screenX + Math.cos(vial.angle) * 22;
+                        const vy = (screenY - bHeight / 2) + Math.sin(vial.angle) * 12;
+
+                        ctx.save();
+                        ctx.fillStyle = this.getColorHex(vial.color);
+                        ctx.fillRect(vx - 3, vy - 4, 6, 8);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(vx - 1, vy - 6, 2, 2);
+                        ctx.restore();
+                    });
+                }
+
+                // Desenhar Poções no Ar
+                this.potionsInAir.forEach(p => {
+                    const px = Math.floor(p.x);
+                    const py = Math.floor(p.y - cameraY);
+
+                    ctx.save();
+                    ctx.fillStyle = this.getColorHex(p.color);
+                    ctx.beginPath();
+                    ctx.arc(px, py, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(px - 1, py - 5, 2, 2);
+                    ctx.restore();
+                });
+
+                // Desenhar Poças no Chão
+                this.puddles.forEach(puddle => {
+                    const px = Math.floor(puddle.x);
+                    const py = Math.floor(puddle.y - cameraY);
+
+                    ctx.save();
+                    ctx.fillStyle = this.getColorHex(puddle.color);
+                    ctx.beginPath();
+                    ctx.ellipse(px, py + 2, 12, 3, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                });
+
+                // Desenhar Cogumelos (Verde)
+                this.mushrooms.forEach(mush => {
+                    const mx = Math.floor(mush.x);
+                    const my = Math.floor(mush.y - cameraY);
+
+                    ctx.save();
+                    // Haste
+                    ctx.fillStyle = '#f0fdf4';
+                    ctx.fillRect(mx - 2, my - 8, 4, 8);
+                    // Chapéu
+                    ctx.fillStyle = '#22c55e';
+                    ctx.fillRect(mx - 6, my - 13, 12, 5);
+                    ctx.fillStyle = '#15803d';
+                    ctx.fillRect(mx - 4, my - 12, 2, 2);
+                    ctx.fillRect(mx + 2, my - 12, 2, 2);
+                    ctx.restore();
+                });
+            }
+        };
+
         const Boss3Config = {
             maxHealth: 6,
             vulnerableDuration: 90,
-            pauseBeforeAction: 65,  // Aumentado para o zelador ficar parado por mais tempo
-            pauseBeforeAttack: 65,  // Aumentado para o zelador ficar parado por mais tempo
+            pauseBeforeAction: 65,
+            pauseBeforeAttack: 65,
             chargeSpeed: 9.0,
-            ghostSpeed: 4.8         // Aumentado para os fantasmas ficarem mais rápidos
+            ghostSpeed: 4.8
         };
 
         const Boss3Controller = {
@@ -1004,6 +1489,7 @@
             stateTimer: 0,
             emittedSound: false,
             side: 'left', 
+            jumpTimer: 0,
 
             init() {
                 this.active = true;
@@ -1018,6 +1504,7 @@
                 this.active = false;
                 this.state = 'INACTIVE';
                 this.stateTimer = 0;
+                this.jumpTimer = 0;
             },
 
             setupNewAttack() {
@@ -1028,6 +1515,7 @@
 
                 this.state = 'SPAWNED_WAITING';
                 this.stateTimer = Boss3Config.pauseBeforeAction;
+                this.jumpTimer = 0;
                 showInteractionMsg("O zelador apareceu na lateral de um andar!");
             },
 
@@ -1054,6 +1542,10 @@
             update() {
                 if (!this.active || GameState.isPaused) return;
 
+                if (this.jumpTimer > 0) {
+                    this.jumpTimer -= 1 * gameSpeedMultiplier;
+                }
+
                 if (this.state === 'DYING') {
                     this.stateTimer -= 1 * gameSpeedMultiplier;
                     if (this.stateTimer <= 0) {
@@ -1074,6 +1566,7 @@
 
                         if (this.emittedSound) {
                             AudioSystem.playPlaySound(); 
+                            this.jumpTimer = 15;
                             showInteractionMsg("O zelador emitiu um som! Apenas este andar é seguro!");
                         } else {
                             showInteractionMsg("Silêncio... Este andar se tornou perigoso!");
@@ -1153,8 +1646,13 @@
             draw(ctx, cameraY) {
                 if (!this.active) return;
 
+                let jumpOffsetY = 0;
+                if (this.jumpTimer > 0) {
+                    jumpOffsetY = Math.sin((this.jumpTimer / 15) * Math.PI) * 12;
+                }
+
                 const screenX = Math.floor(this.x);
-                const screenY = Math.floor(this.y - cameraY);
+                const screenY = Math.floor(this.y - cameraY - jumpOffsetY);
                 const currentBossMatrix = bossAquaMatrix;
                 const currentBossPalette = bossPaletteAqua;
 
@@ -1492,6 +1990,12 @@
         };
 
         function updateAndDrawBoss(ctx, cameraY) {
+            if (GameState.current === 'ROOM_GREEN') {
+                Boss4Controller.update();
+                Boss4Controller.draw(ctx, cameraY);
+                return;
+            }
+
             if (GameState.current === 'ROOM_BLUE') {
                 Boss2Controller.update();
                 Boss2Controller.draw(ctx, cameraY);
@@ -1662,7 +2166,7 @@
         }
 
         function updateAndDrawGhosts(ctx, cameraY) {
-            if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA') {
+            if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA' || GameState.current === 'ROOM_GREEN') {
                 if (bossDefeatedSequence) {
                     ctx.fillStyle = '#000000';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1682,11 +2186,11 @@
                     return;
                 }
 
-                if (bossActive || Boss2Controller.active || Boss3Controller.active) {
+                if (bossActive || Boss2Controller.active || Boss3Controller.active || Boss4Controller.active) {
                     updateAndDrawBoss(ctx, cameraY);
                 }
 
-                if (!bossActive && !Boss2Controller.active && !Boss3Controller.active && ghostsSpawnedTotal < maxGhostsToSpawn && !GameState.isPaused) {
+                if (!bossActive && !Boss2Controller.active && !Boss3Controller.active && !Boss4Controller.active && ghostsSpawnedTotal < maxGhostsToSpawn && !GameState.isPaused) {
                     ghostSpawnTimer += 1 * gameSpeedMultiplier;
                     if (ghostSpawnTimer > 60 && ghosts.length < 6) {
                         ghostSpawnTimer = 0;
@@ -1835,21 +2339,27 @@
                     return; 
                 }
 
+                // Ajuste de velocidade caso afetado por lentidão (Poção Laranja)
+                let currentSpeed = this.speed;
+                if (Boss4Controller.active && Boss4Controller.slownessTimer > 0) {
+                    currentSpeed *= 0.5;
+                }
+
                 this.isMoving = false;
                 if (GameState.current === 'CORRIDOR') {
                     let moveX = 0;
                     if (GameState.keys.a) { moveX -= 1; this.direction = -1; this.isMoving = true; }
                     if (GameState.keys.d) { moveX += 1; this.direction = 1; this.isMoving = true; }
 
-                    this.x += moveX * this.speed * gameSpeedMultiplier;
+                    this.x += moveX * currentSpeed * gameSpeedMultiplier;
                     this.x = Math.max(30, Math.min(this.x, 920));
                     this.y = 120;
-                } else if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA') {
+                } else if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA' || GameState.current === 'ROOM_GREEN') {
                     let moveX = 0;
                     if (GameState.keys.a) { moveX -= 1; this.direction = -1; this.isMoving = true; }
                     if (GameState.keys.d) { moveX += 1; this.direction = 1; this.isMoving = true; }
 
-                    this.x += moveX * this.speed * gameSpeedMultiplier;
+                    this.x += moveX * currentSpeed * gameSpeedMultiplier;
                     this.x = Math.max(35, Math.min(this.x, 285));
 
                     const targetY = Infirmary.floors[this.currentFloor];
@@ -1866,7 +2376,7 @@
             },
 
             changeFloor(dir) {
-                if ((GameState.current !== 'INFIRMARY' && GameState.current !== 'ROOM_BLUE' && GameState.current !== 'ROOM_AQUA') || bossDefeatedSequence || GameState.isPaused || this.paralysisTimer > 0) return;
+                if ((GameState.current !== 'INFIRMARY' && GameState.current !== 'ROOM_BLUE' && GameState.current !== 'ROOM_AQUA' && GameState.current !== 'ROOM_GREEN') || bossDefeatedSequence || GameState.isPaused || this.paralysisTimer > 0) return;
                 if (dir === -1 && this.currentFloor < Infirmary.floors.length - 1) {
                     this.currentFloor++;
                 } else if (dir === 1 && this.currentFloor > 0) {
@@ -1971,6 +2481,8 @@
                             enterBlueRoom();
                         } else if (door.id === 3) {
                             enterAquaRoom();
+                        } else if (door.id === 4) {
+                            enterGreenRoom();
                         } else {
                             showInteractionMsg("Esta área está aberta!");
                         }
@@ -2004,6 +2516,7 @@
                 ctx.save();
                 ctx.translate(0, -Math.floor(this.cameraY));
 
+                const isGreen = GameState.current === 'ROOM_GREEN';
                 const isAqua = GameState.current === 'ROOM_AQUA';
                 const isBlue = GameState.current === 'ROOM_BLUE';
 
@@ -2016,7 +2529,16 @@
                 let floorShadow = '#210a38';
                 let ceilingColor = '#511b8a';
 
-                if (isAqua) {
+                if (isGreen) {
+                    bgBase = '#052e16';
+                    wallTile = '#14532d';
+                    wallTileAlt = '#052e16';
+                    wallBorder = '#166534';
+                    floorBase = '#15803d';
+                    floorHighlight = '#4ade80';
+                    floorShadow = '#022c22';
+                    ceilingColor = '#22c55e';
+                } else if (isAqua) {
                     bgBase = '#022c22';
                     wallTile = '#064e3b';
                     wallTileAlt = '#022c22';
@@ -2065,7 +2587,7 @@
                 ctx.fillStyle = ceilingColor;
                 ctx.fillRect(0, -45, 320, 5);
 
-                ctx.fillStyle = isAqua ? '#011710' : (isBlue ? '#020617' : '#08030d');
+                ctx.fillStyle = isGreen ? '#021a0c' : (isAqua ? '#011710' : (isBlue ? '#020617' : '#08030d'));
                 ctx.fillRect(16, 176 + 5, 288, 60);
 
                 ctx.restore();
@@ -2102,6 +2624,7 @@
                     boss = null;
                     Boss2Controller.reset();
                     Boss3Controller.reset();
+                    Boss4Controller.reset();
                     document.getElementById('health-bar').classList.remove('hidden');
                     document.getElementById('btn-pause').classList.remove('hidden');
                 }, 500);
@@ -2138,6 +2661,7 @@
                     boss = null;
                     Boss2Controller.reset();
                     Boss3Controller.reset();
+                    Boss4Controller.reset();
                     document.getElementById('health-bar').classList.remove('hidden');
                     document.getElementById('btn-pause').classList.remove('hidden');
                 }, 500);
@@ -2174,6 +2698,44 @@
                     boss = null;
                     Boss2Controller.reset();
                     Boss3Controller.reset();
+                    Boss4Controller.reset();
+                    document.getElementById('health-bar').classList.remove('hidden');
+                    document.getElementById('btn-pause').classList.remove('hidden');
+                }, 500);
+            }, 2000);
+        }
+
+        function enterGreenRoom() {
+            GameState.current = 'ROOM_TRANSITION';
+            AudioSystem.playTransitionSound();
+
+            const titleOverlay = document.getElementById('room-title-overlay');
+            titleOverlay.innerText = "A FARMÁCIA";
+            titleOverlay.style.color = "#22c55e";
+            titleOverlay.style.opacity = '1';
+
+            setTimeout(() => {
+                titleOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    GameState.current = 'ROOM_GREEN';
+                    maxPlayerHealth = 7;
+                    playerHealth = 7;
+                    updateHealthDisplay();
+                    
+                    crucifixAvailable = true;
+                    
+                    Player.x = 160;
+                    Player.currentFloor = 0;
+                    Player.y = Infirmary.floors[0];
+                    Infirmary.cameraY = 60;
+                    ghostsSpawnedTotal = 0;
+                    maxGhostsToSpawn = 45; // Quarta sala exige 45 fantasmas derrotados
+                    ghosts = [];
+                    bossActive = false;
+                    boss = null;
+                    Boss2Controller.reset();
+                    Boss3Controller.reset();
+                    Boss4Controller.reset();
                     document.getElementById('health-bar').classList.remove('hidden');
                     document.getElementById('btn-pause').classList.remove('hidden');
                 }, 500);
@@ -2201,7 +2763,7 @@
             } else if (GameState.current === 'ROOM_TRANSITION') {
                 ctx.fillStyle = '#0a0314';
                 ctx.fillRect(0, 0, 320, 180);
-            } else if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA') {
+            } else if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA' || GameState.current === 'ROOM_GREEN') {
                 Player.update();
                 Infirmary.updateCamera(Player.currentFloor);
                 Infirmary.draw(ctx);
@@ -2236,7 +2798,7 @@
                 }
 
                 let floorY = 120;
-                if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA') {
+                if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA' || GameState.current === 'ROOM_GREEN') {
                     floorY = Infirmary.floors[Player.currentFloor];
                 }
 
@@ -2278,8 +2840,16 @@
                         Boss3Controller.takeDamage(1);
                     }
                 }
+
+                if (GameState.current === 'ROOM_GREEN' && Boss4Controller.active) {
+                    let b4Dist = Math.hypot(p.x - Boss4Controller.x, p.y - (Boss4Controller.y - 20));
+                    if (b4Dist < 25) {
+                        projectileHit = true;
+                        Boss4Controller.takeDamage(1);
+                    }
+                }
                 
-                if (!projectileHit && (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA')) {
+                if (!projectileHit && (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA' || GameState.current === 'ROOM_GREEN')) {
                     for (let j = ghosts.length - 1; j >= 0; j--) {
                         let g = ghosts[j];
                         let dist = Math.hypot(p.x - g.x, p.y - g.y);
@@ -2375,8 +2945,12 @@
             document.getElementById('victory-screen').classList.add('hidden');
             document.getElementById('health-bar').classList.add('hidden');
             document.getElementById('btn-pause').classList.add('hidden');
+            document.getElementById('darkness-overlay').style.opacity = '0';
             
-            if (GameState.current === 'ROOM_AQUA') {
+            if (GameState.current === 'ROOM_GREEN') {
+                Corridor.doors[3].isCleared = true;
+                Corridor.doors[4].isLocked = false;
+            } else if (GameState.current === 'ROOM_AQUA') {
                 Corridor.doors[2].isCleared = true;
                 Corridor.doors[3].isLocked = false; 
             } else if (GameState.current === 'ROOM_BLUE') {
@@ -2388,7 +2962,9 @@
             }
             
             GameState.current = 'CORRIDOR';
-            if (GameState.current === 'ROOM_AQUA') {
+            if (GameState.current === 'ROOM_GREEN') {
+                Player.x = 560;
+            } else if (GameState.current === 'ROOM_AQUA') {
                 Player.x = 440;
             } else if (GameState.current === 'ROOM_BLUE') {
                 Player.x = 320;
@@ -2438,7 +3014,10 @@
         document.getElementById('btn-retry').addEventListener('click', () => {
             const roomToRespawn = lastActiveRoom;
             
-            if (roomToRespawn === 'ROOM_AQUA') {
+            if (roomToRespawn === 'ROOM_GREEN') {
+                maxPlayerHealth = 7;
+                playerHealth = 7;
+            } else if (roomToRespawn === 'ROOM_AQUA') {
                 maxPlayerHealth = 6;
                 playerHealth = 6;
             } else {
@@ -2459,10 +3038,12 @@
             GameState.isPaused = false;
             Boss2Controller.reset();
             Boss3Controller.reset();
+            Boss4Controller.reset();
 
             document.getElementById('victory-screen').classList.add('hidden');
             document.getElementById('modal-pause').classList.add('hidden');
             document.getElementById('btn-pause').classList.add('hidden');
+            document.getElementById('darkness-overlay').style.opacity = '0';
             updateHealthDisplay();
 
             document.getElementById('game-over-screen').classList.add('hidden');
@@ -2513,15 +3094,8 @@
             document.getElementById('shop-container').classList.add('hidden');
         });
 
-        let msgTimeout;
         function showInteractionMsg(text) {
-            const msgEl = document.getElementById('interaction-msg');
-            msgEl.innerText = text;
-            msgEl.classList.remove('hidden');
-            clearTimeout(msgTimeout);
-            msgTimeout = setTimeout(() => {
-                msgEl.classList.add('hidden');
-            }, 2000);
+            return;
         }
 
         window.addEventListener('keydown', (e) => {
@@ -2555,7 +3129,7 @@
                 } else if (e.button === 2) {
                     showInteractionMsg("Não é possível usar o crucifixo aqui.");
                 }
-            } else if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA') {
+            } else if (GameState.current === 'INFIRMARY' || GameState.current === 'ROOM_BLUE' || GameState.current === 'ROOM_AQUA' || GameState.current === 'ROOM_GREEN') {
                 if (e.button === 0) {
                     spawnApple(Player.x, Player.y, Player.direction);
                     showInteractionMsg("Maçã arremessada!");
